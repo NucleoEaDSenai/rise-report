@@ -56,24 +56,14 @@ st.markdown(
         margin: auto;
     }
 
-    /* Caixa de destaque cinza */
-    div.stDownloadButton {
-        background-color: #222 !important;
-        padding: 15px;
-        border-radius: 8px;
-        text-align: center;
-        margin: 20px auto;
-        max-width: 400px;
-    }
-
-    /* Botão preto com texto azul SENAI */
+    /* Botão cinza com texto azul SENAI */
     div.stDownloadButton > button {
-        background-color: #000 !important;
-        color: #83c7e5 !important;
+        background-color: #333 !important;   /* cinza médio */
+        color: #83c7e5 !important;           /* azul SENAI */
         font-weight: bold;
         border-radius: 6px;
         border: none !important;
-        width: 100%;
+        padding: 0.6rem 1.2rem;
     }
     </style>
     """,
@@ -161,7 +151,7 @@ if uploaded_file:
         parts.append("</table></body></html>")
         html_out = "".join(parts)
 
-        # Botão de download dentro da caixa cinza
+        # Botão de download
         st.download_button(
             label="⬇️ Baixar Relatório HTML",
             data=html_out,
