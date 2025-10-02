@@ -40,7 +40,7 @@ def collect_texts_from_obj(obj, whitelist):
 st.set_page_config(page_title="Contador de Caracteres Rise", layout="wide")
 
 # Logo + título
-st.image("firjan_senai_branco_horizontal.png", width=180)  # logo local, menor
+st.image("firjan_senai_branco_horizontal.png", width=180)
 st.markdown("<h1 style='color:#83c7e5; text-align:center;'>Contador de Caracteres Rise</h1>", unsafe_allow_html=True)
 
 # CSS customizado
@@ -50,20 +50,19 @@ st.markdown(
     body { background-color: #000; color: #fff; }
     h1, h2, h3, p, td, th { color: #fff !important; }
 
-    /* Uploader centralizado */
+    /* Uploader */
     div[data-testid="stFileUploader"] {
-        max-width: 600px;   /* largura maior */
+        max-width: 600px;
         margin: auto;
     }
-    .stFileUploader {padding: 0.5rem !important;}
 
-    /* Botão de download branco com azul SENAI */
+    /* Botão de download preto com texto azul SENAI */
     div.stDownloadButton > button {
-        background-color: white !important;
-        color: #83c7e5 !important;  /* azul SENAI */
+        background-color: #000 !important;
+        color: #83c7e5 !important;
         font-weight: bold;
         border-radius: 6px;
-        border: 2px solid #83c7e5 !important;
+        border: none !important;
     }
     </style>
     """,
@@ -119,7 +118,8 @@ if uploaded_file:
                 total_words += lesson_words
 
         # Criar HTML para download
-        html_out = f"""
+        parts = []
+        parts.append(f"""
         <!DOCTYPE html>
         <html lang="pt-br">
         <head>
@@ -141,13 +141,14 @@ if uploaded_file:
         <p><b>Total de palavras:</b> {total_words}</p>
         <h2>Totais por módulo</h2>
         <ul>
-        """
+        """)
         for mod, (chars, words) in totals_by_lesson.items():
-            html_out += f"<li><b>{mod}</b>: {chars} caracteres, {words} palavras</li>"
-        html_out += "</ul><h2>Blocos detalhados</h2><table><tr><th>Módulo</th><th>Bloco</th><th>Caracteres</th><th>Palavras</th><th>Prévia</th></tr>"
+            parts.append(f"<li><b>{mod}</b>: {chars} caracteres, {words} palavras</li>")
+        parts.append("</ul><h2>Blocos detalhados</h2><table><tr><th>Módulo</th><th>Bloco</th><th>Caracteres</th><th>Palavras</th><th>Prévia</th></tr>")
         for row in rows:
-            html_out += f"<tr><td>{row[0]}</td><td>{row[1]}</td><td>{row[2]}</td><td>{row[3]}</td><td>{row[4]}</td></tr>"
-        html_out += "</table></body></html>"
+            parts.append(f"<tr><td>{row[0]}</td><td>{row[1]}</td><td>{row[2]}</td><td>{row[3]}</td><td>{row[4]}</td></tr>")
+        parts.append("</table></body></html>")
+        html_out = "".join(parts)
 
         # Botão de download no topo
         st.download_button(
@@ -157,7 +158,7 @@ if uploaded_file:
             mime="text/html"
         )
 
-        # Preview
+        # Resumo no app
         st.markdown(f"<h2 style='color:#83c7e5;'>{course_title}</h2>", unsafe_allow_html=True)
         st.write(f"📅 **Gerado em:** {data_geracao}")
         st.write(f"**Total de caracteres (com espaço):** {total_chars}")
@@ -167,5 +168,12 @@ if uploaded_file:
         for mod, (chars, words) in totals_by_lesson.items():
             st.write(f"- **{mod}** → {chars} caracteres, {words} palavras")
 
-        st.markdown("<h3 style='color:#83c7e5;'>Blocos detalhados</h3>", unsafe_allow_html=True)
-        st.dataframe(rows, use_container_width=True)
+        # Preview limitado
+        st.markdown("<h3 style='color:#83c7e5;'>Blocos detalhados (preview)</h3>", unsafe_allow_html=True)
+        max_preview = 100
+        preview_rows = rows[:max_preview]
+        st.dataframe(preview_rows, use_container_width=True)
+
+        if len(rows) > max_preview:
+            st.info(f"⚠️ Mostrando apenas os primeiros {max_preview} blocos no app. "
+                    f"O relatório HTML baixado contém todos os {len(rows)} blocos.")
