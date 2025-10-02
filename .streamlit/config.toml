@@ -1,0 +1,7 @@
+[theme]
+base="dark"
+primaryColor="#83c7e5"            # Azul SENAI Firjan
+backgroundColor="#000000"
+secondaryBackgroundColor="#111111"
+textColor="#FFFFFF"
+font="sans serif"

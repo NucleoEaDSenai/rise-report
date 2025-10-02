@@ -36,8 +36,18 @@ def collect_texts_from_obj(obj, whitelist):
             texts.extend(collect_texts_from_obj(e, whitelist))
     return texts
 
+# Configuração da página
 st.set_page_config(page_title="Relatório de Caracteres Rise", layout="wide")
-st.title("📊 Relatório de Caracteres - Rise")
+
+# Logo no topo
+col1, col2 = st.columns([1,4])
+with col1:
+    st.image("firjan_senai_branco_horizontal.png", use_column_width=True)
+with col2:
+    st.markdown(
+        "<h1 style='color:#83c7e5;'>📊 Relatório de Caracteres - Cursos Rise</h1>",
+        unsafe_allow_html=True
+    )
 
 uploaded_file = st.file_uploader("📂 Faça upload do `index.html` exportado do Rise", type=["html", "htm"])
 
@@ -87,53 +97,15 @@ if uploaded_file:
                 total_chars += lesson_chars
                 total_words += lesson_words
 
-        # Exibir resumo no Streamlit
-        st.subheader(course_title)
-        st.write(f"📅 Gerado em: {data_geracao}")
+        # Exibir resumo com cor institucional
+        st.markdown(f"<h2 style='color:#83c7e5;'>{course_title}</h2>", unsafe_allow_html=True)
+        st.write(f"📅 **Gerado em:** {data_geracao}")
         st.write(f"**Total de caracteres (com espaço):** {total_chars}")
         st.write(f"**Total de palavras:** {total_words}")
 
-        st.subheader("Totais por módulo")
+        st.markdown("<h3 style='color:#83c7e5;'>Totais por módulo</h3>", unsafe_allow_html=True)
         for mod, (chars, words) in totals_by_lesson.items():
             st.write(f"- **{mod}** → {chars} caracteres, {words} palavras")
 
-        st.subheader("Blocos detalhados")
+        st.markdown("<h3 style='color:#83c7e5;'>Blocos detalhados</h3>", unsafe_allow_html=True)
         st.dataframe(rows, use_container_width=True)
-
-        # Criar HTML dark mode para download
-        html_out = f"""
-        <!DOCTYPE html>
-        <html lang="pt-br">
-        <head>
-        <meta charset="UTF-8">
-        <title>Relatório de Caracteres - {course_title}</title>
-        <style>
-        body {{ font-family: Arial, sans-serif; background:#000; color:#fff; padding:20px; }}
-        h1,h2,p,td,th {{ color:#fff; }}
-        table {{ width:100%; border-collapse:collapse; margin-top:20px; }}
-        th,td {{ border:1px solid #555; padding:8px; }}
-        th {{ background:#222; }}
-        tr:nth-child(even) {{ background:#111; }}
-        </style>
-        </head>
-        <body>
-        <h1>Relatório de Caracteres</h1>
-        <h2>{course_title}</h2>
-        <p><b>Total de caracteres:</b> {total_chars}</p>
-        <p><b>Total de palavras:</b> {total_words}</p>
-        <h2>Totais por módulo</h2>
-        <ul>
-        """
-        for mod, (chars, words) in totals_by_lesson.items():
-            html_out += f"<li><b>{mod}</b>: {chars} caracteres, {words} palavras</li>"
-        html_out += "</ul><h2>Blocos detalhados</h2><table><tr><th>Módulo</th><th>Bloco</th><th>Caracteres</th><th>Palavras</th><th>Prévia</th></tr>"
-        for row in rows:
-            html_out += f"<tr><td>{row[0]}</td><td>{row[1]}</td><td>{row[2]}</td><td>{row[3]}</td><td>{row[4]}</td></tr>"
-        html_out += "</table></body></html>"
-
-        st.download_button(
-            label="⬇️ Baixar Relatório HTML",
-            data=html_out,
-            file_name=f"relatorio_{slug}.html",
-            mime="text/html"
-        )
