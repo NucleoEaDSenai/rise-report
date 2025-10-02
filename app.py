@@ -39,25 +39,29 @@ def collect_texts_from_obj(obj, whitelist):
 # Configuração da página
 st.set_page_config(page_title="Contador de Caracteres Rise", layout="wide")
 
-# Logo centralizada
-st.markdown("<div style='text-align:center;'>", unsafe_allow_html=True)
-st.image("firjan_senai_branco_horizontal.png", use_container_width=True)
-st.markdown("</div>", unsafe_allow_html=True)
-
-# Título abaixo da logo
+# Barra superior com logo pequena
 st.markdown(
-    "<h1 style='text-align:center; color:#83c7e5;'>Contador de Caracteres Rise</h1>",
+    """
+    <div style='display:flex; align-items:center; justify-content:flex-start;'>
+        <img src='https://raw.githubusercontent.com/SEU-USUARIO/rise-report/main/firjan_senai_branco_horizontal.png' style='height:50px; margin-right:15px;'>
+        <h1 style='color:#83c7e5; margin:0;'>Contador de Caracteres Rise</h1>
+    </div>
+    <hr style="border:1px solid #333;">
+    """,
     unsafe_allow_html=True
 )
 
-# Estilo customizado para uploader
+# Estilo customizado para uploader (mais compacto e em português)
 st.markdown(
     """
     <style>
-    /* Reduz altura e espaçamento do uploader */
     .uploadedFile {margin: 0 !important;}
-    .stFileUploader {padding: 0.3rem 0 !important;}
-    /* Traduz botão Browse Files */
+    .stFileUploader {padding: 0.2rem 0 !important;}
+    /* Reduz largura */
+    div[data-testid="stFileUploader"] {
+        max-width: 300px;
+    }
+    /* Botão traduzido */
     button[data-baseweb="button"]::after {
         content: "Escolher arquivo";
         color: white;
@@ -65,24 +69,11 @@ st.markdown(
     button[data-baseweb="button"] > div:first-child {
         display: none;
     }
-    /* Botão de download em branco */
-    .stDownloadButton button {
-        background-color: #fff !important;
-        color: #000 !important;
-        font-weight: bold;
-        border-radius: 6px;
-        padding: 0.6rem 1.2rem;
-    }
-    .stDownloadButton button:hover {
-        background-color: #ddd !important;
-        color: #000 !important;
-    }
     </style>
     """,
     unsafe_allow_html=True
 )
 
-# Uploader em português
 uploaded_file = st.file_uploader("📂 Selecione o arquivo `index.html` do Rise", type=["html", "htm"])
 
 if uploaded_file:
