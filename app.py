@@ -43,26 +43,27 @@ st.set_page_config(page_title="Contador de Caracteres Rise", layout="wide")
 st.image("firjan_senai_branco_horizontal.png", width=180)  # logo local, menor
 st.markdown("<h1 style='color:#83c7e5; text-align:center;'>Contador de Caracteres Rise</h1>", unsafe_allow_html=True)
 
-# CSS para dark mode e uploader responsivo
+# CSS customizado
 st.markdown(
     """
     <style>
     body { background-color: #000; color: #fff; }
     h1, h2, h3, p, td, th { color: #fff !important; }
 
-    /* Uploader centralizado e responsivo */
+    /* Uploader centralizado */
     div[data-testid="stFileUploader"] {
-        max-width: 400px;   /* mais largo */
+        max-width: 600px;   /* largura maior */
         margin: auto;
     }
     .stFileUploader {padding: 0.5rem !important;}
 
-    /* Botão de download branco */
+    /* Botão de download branco com azul SENAI */
     div.stDownloadButton > button {
         background-color: white !important;
-        color: black !important;
+        color: #83c7e5 !important;  /* azul SENAI */
         font-weight: bold;
         border-radius: 6px;
+        border: 2px solid #83c7e5 !important;
     }
     </style>
     """,
