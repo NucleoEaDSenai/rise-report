@@ -39,13 +39,13 @@ def collect_texts_from_obj(obj, whitelist):
 # Configuração da página
 st.set_page_config(page_title="Relatório de Caracteres Rise", layout="wide")
 
-# Logo no topo
+# Logo + título no topo
 col1, col2 = st.columns([1,4])
 with col1:
-    st.image("firjan_senai_branco_horizontal.png", use_column_width=True)
+    st.image("firjan_senai_branco_horizontal.png", use_container_width=True)
 with col2:
     st.markdown(
-        "<h1 style='color:#83c7e5;'>📊 Relatório de Caracteres - Cursos Rise</h1>",
+        "<h1 style='color:#83c7e5;'> Relatório de Caracteres - Cursos Rise</h1>",
         unsafe_allow_html=True
     )
 
@@ -97,7 +97,7 @@ if uploaded_file:
                 total_chars += lesson_chars
                 total_words += lesson_words
 
-        # Exibir resumo com cor institucional
+        # Exibir resumo
         st.markdown(f"<h2 style='color:#83c7e5;'>{course_title}</h2>", unsafe_allow_html=True)
         st.write(f"📅 **Gerado em:** {data_geracao}")
         st.write(f"**Total de caracteres (com espaço):** {total_chars}")
