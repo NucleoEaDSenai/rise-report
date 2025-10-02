@@ -39,39 +39,23 @@ def collect_texts_from_obj(obj, whitelist):
 # Configuração da página
 st.set_page_config(page_title="Contador de Caracteres Rise", layout="wide")
 
-# Logo no topo
-st.markdown(
-    """
-    <div style='text-align:center; margin-bottom:20px;'>
-        <img src='firjan_senai_branco_horizontal.png' style='height:40px;'>
-        <h1 style='color:#83c7e5; margin-top:10px;'>Contador de Caracteres Rise</h1>
-    </div>
-    """,
-    unsafe_allow_html=True
-)
+# Logo + título
+st.image("firjan_senai_branco_horizontal.png", width=180)  # logo local, menor
+st.markdown("<h1 style='color:#83c7e5; text-align:center;'>Contador de Caracteres Rise</h1>", unsafe_allow_html=True)
 
-# CSS para dark mode e uploader em português
+# CSS para dark mode e uploader responsivo
 st.markdown(
     """
     <style>
     body { background-color: #000; color: #fff; }
     h1, h2, h3, p, td, th { color: #fff !important; }
 
-    /* Uploader */
-    .stFileUploader label div div:first-child {
-        display: none !important; /* remove texto em inglês */
-    }
-    button[data-baseweb="button"]::after {
-        content: "Escolher arquivo"; /* tradução */
-        color: white;
-    }
-    button[data-baseweb="button"] > div:first-child {
-        display: none !important;
-    }
+    /* Uploader centralizado e responsivo */
     div[data-testid="stFileUploader"] {
-        max-width: 220px;
+        max-width: 400px;   /* mais largo */
         margin: auto;
     }
+    .stFileUploader {padding: 0.5rem !important;}
 
     /* Botão de download branco */
     div.stDownloadButton > button {
@@ -85,7 +69,7 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-uploaded_file = st.file_uploader("", type=["html", "htm"])
+uploaded_file = st.file_uploader("📂 Selecione o arquivo `index.html` do Rise", type=["html", "htm"])
 
 if uploaded_file:
     html = uploaded_file.read().decode("utf-8", errors="ignore")
@@ -172,7 +156,7 @@ if uploaded_file:
             mime="text/html"
         )
 
-        # Preview dos resultados no app
+        # Preview
         st.markdown(f"<h2 style='color:#83c7e5;'>{course_title}</h2>", unsafe_allow_html=True)
         st.write(f"📅 **Gerado em:** {data_geracao}")
         st.write(f"**Total de caracteres (com espaço):** {total_chars}")
