@@ -39,42 +39,53 @@ def collect_texts_from_obj(obj, whitelist):
 # Configuração da página
 st.set_page_config(page_title="Contador de Caracteres Rise", layout="wide")
 
-# Barra superior com logo pequena
+# Logo no topo
 st.markdown(
     """
-    <div style='display:flex; align-items:center; justify-content:flex-start;'>
-        <img src='https://raw.githubusercontent.com/SEU-USUARIO/rise-report/main/firjan_senai_branco_horizontal.png' style='height:50px; margin-right:15px;'>
-        <h1 style='color:#83c7e5; margin:0;'>Contador de Caracteres Rise</h1>
+    <div style='text-align:center; margin-bottom:20px;'>
+        <img src='firjan_senai_branco_horizontal.png' style='height:40px;'>
+        <h1 style='color:#83c7e5; margin-top:10px;'>Contador de Caracteres Rise</h1>
     </div>
-    <hr style="border:1px solid #333;">
     """,
     unsafe_allow_html=True
 )
 
-# Estilo customizado para uploader (mais compacto e em português)
+# CSS para dark mode e uploader em português
 st.markdown(
     """
     <style>
-    .uploadedFile {margin: 0 !important;}
-    .stFileUploader {padding: 0.2rem 0 !important;}
-    /* Reduz largura */
-    div[data-testid="stFileUploader"] {
-        max-width: 300px;
+    body { background-color: #000; color: #fff; }
+    h1, h2, h3, p, td, th { color: #fff !important; }
+
+    /* Uploader */
+    .stFileUploader label div div:first-child {
+        display: none !important; /* remove texto em inglês */
     }
-    /* Botão traduzido */
     button[data-baseweb="button"]::after {
-        content: "Escolher arquivo";
+        content: "Escolher arquivo"; /* tradução */
         color: white;
     }
     button[data-baseweb="button"] > div:first-child {
-        display: none;
+        display: none !important;
+    }
+    div[data-testid="stFileUploader"] {
+        max-width: 220px;
+        margin: auto;
+    }
+
+    /* Botão de download branco */
+    div.stDownloadButton > button {
+        background-color: white !important;
+        color: black !important;
+        font-weight: bold;
+        border-radius: 6px;
     }
     </style>
     """,
     unsafe_allow_html=True
 )
 
-uploaded_file = st.file_uploader("📂 Selecione o arquivo `index.html` do Rise", type=["html", "htm"])
+uploaded_file = st.file_uploader("", type=["html", "htm"])
 
 if uploaded_file:
     html = uploaded_file.read().decode("utf-8", errors="ignore")
@@ -122,7 +133,7 @@ if uploaded_file:
                 total_chars += lesson_chars
                 total_words += lesson_words
 
-        # Criar HTML dark mode para download
+        # Criar HTML para download
         html_out = f"""
         <!DOCTYPE html>
         <html lang="pt-br">
@@ -161,7 +172,7 @@ if uploaded_file:
             mime="text/html"
         )
 
-        # Exibir resumo
+        # Preview dos resultados no app
         st.markdown(f"<h2 style='color:#83c7e5;'>{course_title}</h2>", unsafe_allow_html=True)
         st.write(f"📅 **Gerado em:** {data_geracao}")
         st.write(f"**Total de caracteres (com espaço):** {total_chars}")
