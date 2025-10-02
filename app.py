@@ -37,19 +37,53 @@ def collect_texts_from_obj(obj, whitelist):
     return texts
 
 # Configuração da página
-st.set_page_config(page_title="Relatório de Caracteres Rise", layout="wide")
+st.set_page_config(page_title="Contador de Caracteres Rise", layout="wide")
 
-# Logo + título no topo
-col1, col2 = st.columns([1,4])
-with col1:
-    st.image("firjan_senai_branco_horizontal.png", use_container_width=True)
-with col2:
-    st.markdown(
-        "<h1 style='color:#83c7e5;'> Relatório de Caracteres - Cursos Rise</h1>",
-        unsafe_allow_html=True
-    )
+# Logo centralizada
+st.markdown("<div style='text-align:center;'>", unsafe_allow_html=True)
+st.image("firjan_senai_branco_horizontal.png", use_container_width=True)
+st.markdown("</div>", unsafe_allow_html=True)
 
-uploaded_file = st.file_uploader("📂 Faça upload do `index.html` exportado do Rise", type=["html", "htm"])
+# Título abaixo da logo
+st.markdown(
+    "<h1 style='text-align:center; color:#83c7e5;'>Contador de Caracteres Rise</h1>",
+    unsafe_allow_html=True
+)
+
+# Estilo customizado para uploader
+st.markdown(
+    """
+    <style>
+    /* Reduz altura e espaçamento do uploader */
+    .uploadedFile {margin: 0 !important;}
+    .stFileUploader {padding: 0.3rem 0 !important;}
+    /* Traduz botão Browse Files */
+    button[data-baseweb="button"]::after {
+        content: "Escolher arquivo";
+        color: white;
+    }
+    button[data-baseweb="button"] > div:first-child {
+        display: none;
+    }
+    /* Botão de download em branco */
+    .stDownloadButton button {
+        background-color: #fff !important;
+        color: #000 !important;
+        font-weight: bold;
+        border-radius: 6px;
+        padding: 0.6rem 1.2rem;
+    }
+    .stDownloadButton button:hover {
+        background-color: #ddd !important;
+        color: #000 !important;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+# Uploader em português
+uploaded_file = st.file_uploader("📂 Selecione o arquivo `index.html` do Rise", type=["html", "htm"])
 
 if uploaded_file:
     html = uploaded_file.read().decode("utf-8", errors="ignore")
@@ -96,6 +130,45 @@ if uploaded_file:
                 totals_by_lesson[lesson_title] = (lesson_chars, lesson_words)
                 total_chars += lesson_chars
                 total_words += lesson_words
+
+        # Criar HTML dark mode para download
+        html_out = f"""
+        <!DOCTYPE html>
+        <html lang="pt-br">
+        <head>
+        <meta charset="UTF-8">
+        <title>Relatório de Caracteres - {course_title}</title>
+        <style>
+        body {{ font-family: Arial, sans-serif; background:#000; color:#fff; padding:20px; }}
+        h1,h2,p,td,th {{ color:#fff; }}
+        table {{ width:100%; border-collapse:collapse; margin-top:20px; }}
+        th,td {{ border:1px solid #555; padding:8px; }}
+        th {{ background:#222; }}
+        tr:nth-child(even) {{ background:#111; }}
+        </style>
+        </head>
+        <body>
+        <h1>Relatório de Caracteres</h1>
+        <h2>{course_title}</h2>
+        <p><b>Total de caracteres:</b> {total_chars}</p>
+        <p><b>Total de palavras:</b> {total_words}</p>
+        <h2>Totais por módulo</h2>
+        <ul>
+        """
+        for mod, (chars, words) in totals_by_lesson.items():
+            html_out += f"<li><b>{mod}</b>: {chars} caracteres, {words} palavras</li>"
+        html_out += "</ul><h2>Blocos detalhados</h2><table><tr><th>Módulo</th><th>Bloco</th><th>Caracteres</th><th>Palavras</th><th>Prévia</th></tr>"
+        for row in rows:
+            html_out += f"<tr><td>{row[0]}</td><td>{row[1]}</td><td>{row[2]}</td><td>{row[3]}</td><td>{row[4]}</td></tr>"
+        html_out += "</table></body></html>"
+
+        # Botão de download no topo
+        st.download_button(
+            label="⬇️ Baixar Relatório HTML",
+            data=html_out,
+            file_name=f"relatorio_{slug}.html",
+            mime="text/html"
+        )
 
         # Exibir resumo
         st.markdown(f"<h2 style='color:#83c7e5;'>{course_title}</h2>", unsafe_allow_html=True)
