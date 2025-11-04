@@ -7,6 +7,7 @@ import base64
 import unicodedata
 from bs4 import BeautifulSoup
 from datetime import datetime
+from typing import Any, Optional, Tuple, Union, List, Dict
 
 # ------------------- Utils -------------------
 def slugify(value):
@@ -38,6 +39,106 @@ def collect_texts_from_obj(obj, whitelist):
             texts.extend(collect_texts_from_obj(e, whitelist))
     return texts
 
+# -------- Payload extraction helpers --------
+def _try_b64_decode(s: str) -> Optional[bytes]:
+    # Try standard b64
+    for urlsafe in (False, True):
+        t = s.strip()
+        if urlsafe:
+            t = t.replace('-', '+').replace('_', '/')
+        # Fix padding if needed
+        pad = len(t) % 4
+        if pad:
+            t = t + ('=' * (4 - pad))
+        try:
+            return base64.b64decode(t, validate=False)
+        except Exception:
+            pass
+    return None
+
+def extract_rise_payload(html: str) -> Optional[bytes]:
+    """
+    Attempts multiple strategies to find the Rise base64 payload.
+    Returns raw decoded bytes if successful.
+    """
+    candidates: List[str] = []
+
+    # Strategy 1: deserialize("...") or deserialize('...')
+    pat1 = re.compile(r'deserialize\(\s*([\'"])(.*?)\1\s*\)', re.DOTALL | re.IGNORECASE)
+    for m in pat1.finditer(html):
+        candidates.append(m.group(2))
+
+    # Strategy 2: atob("...") or atob('...')
+    pat2 = re.compile(r'atob\(\s*([\'"])(.*?)\1\s*\)', re.DOTALL | re.IGNORECASE)
+    for m in pat2.finditer(html):
+        candidates.append(m.group(2))
+
+    # Strategy 3: any very long base64-like quoted string
+    pat3 = re.compile(r'([\'"])([A-Za-z0-9+/=_-]{500,})\1', re.DOTALL)
+    for m in pat3.finditer(html):
+        candidates.append(m.group(2))
+
+    # Deduplicate while preserving order
+    seen = set()
+    uniq_candidates = []
+    for c in candidates:
+        if c not in seen:
+            uniq_candidates.append(c)
+            seen.add(c)
+
+    for c in uniq_candidates:
+        raw = _try_b64_decode(c)
+        if not raw:
+            continue
+        # Heuristic: decoded bytes should look like JSON
+        # Try json loads; if it fails, skip
+        try:
+            data = json.loads(raw.decode('utf-8', errors='ignore'))
+        except Exception:
+            # Sometimes there is a second layer of base64 or stringified JSON
+            try:
+                inner_try = raw.decode('utf-8', errors='ignore')
+                inner_b = _try_b64_decode(inner_try)
+                if inner_b:
+                    data = json.loads(inner_b.decode('utf-8', errors='ignore'))
+                else:
+                    continue
+            except Exception:
+                continue
+        # If JSON loaded, return original decoded bytes (of the JSON)
+        return json.dumps(data).encode('utf-8')
+    return None
+
+def find_course_root(obj: Any) -> Tuple[Optional[Dict[str, Any]], Optional[List[Dict[str, Any]]]]:
+    """
+    Finds a dict that contains lessons (list of dicts). Returns (course_root, lessons_list).
+    Tries standard paths and a BFS over nested dicts.
+    """
+    # Common cases
+    if isinstance(obj, dict):
+        if 'course' in obj and isinstance(obj['course'], dict):
+            c = obj['course']
+            if 'lessons' in c and isinstance(c['lessons'], list):
+                return c, c['lessons']
+        if 'lessons' in obj and isinstance(obj['lessons'], list):
+            return obj, obj['lessons']
+
+    # BFS over dicts/lists
+    queue = [obj]
+    while queue:
+        cur = queue.pop(0)
+        if isinstance(cur, dict):
+            if 'lessons' in cur and isinstance(cur['lessons'], list):
+                return cur, cur['lessons']
+            for v in cur.values():
+                if isinstance(v, (dict, list)):
+                    queue.append(v)
+        elif isinstance(cur, list):
+            for v in cur:
+                if isinstance(v, (dict, list)):
+                    queue.append(v)
+    return None, None
+
 # ------------------- UI / ESTILO -------------------
 st.set_page_config(page_title="Contador de Palavras Rise", layout="wide")
 
@@ -66,17 +167,25 @@ uploaded_file = st.file_uploader("📂 Selecione o arquivo `index.html` do Rise"
 if uploaded_file:
     html = uploaded_file.read().decode("utf-8", errors="ignore")
 
-    # Detecta o payload base64 do Rise (Articulate) dentro do index.html
-    m = re.search(r'deserialize\\("([^"]+)"\\)', html)
-    if not m:
-        st.error("❌ Não encontrei dados de curso nesse index.html.")
+    raw_payload = extract_rise_payload(html)
+    if not raw_payload:
+        st.error("❌ Não encontrei dados de curso nesse index.html. Tente garantir que é o `index.html` exportado do Rise (não zip recompactado) e que o arquivo não foi minificado/alterado.")
     else:
-        data = json.loads(base64.b64decode(m.group(1)).decode("utf-8"))
-        course = data.get("course", {})
-        lessons = course.get("lessons", [])
-        course_title = course.get("title", "curso_rise")
-        slug = slugify(course_title)
+        try:
+            data = json.loads(raw_payload.decode('utf-8', errors='ignore'))
+        except Exception as e:
+            st.error("❌ Encontrei um payload, mas não consegui ler o JSON interno.")
+            st.exception(e)
+            st.stop()
+
+        course_root, lessons = find_course_root(data)
+        if not lessons:
+            st.error("❌ Encontrei JSON, mas não localizei a estrutura de `lessons`. Pode ser um formato diferente do Rise.")
+            st.stop()
+
+        course_title = course_root.get("title", "curso_rise")
         data_geracao = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        slug = slugify(course_title)
 
         whitelist = {
             "title","subtitle","body","content","heading","paragraph","text","html","label",
@@ -84,26 +193,24 @@ if uploaded_file:
         }
 
         # -------- Contagem por MÓDULO (sessão) e detalhado por blocos --------
-        # Mantém as estruturas originais para NÃO alterar nada que já está pronto
         block_rows = []         # tabela detalhada (por bloco) - SÓ PALAVRAS (original)
         module_rows = []        # resumo por módulo - SÓ PALAVRAS (original)
         total_words = 0         # total de palavras (original)
 
-        # --- NOVO: estruturas adicionais para caracteres (sem alterar as originais) ---
+        # --- NOVO (caracteres) ---
         block_rows_chars = []   # detalhado por bloco (palavras + caracteres)
         module_rows_chars = []  # resumo por módulo (palavras + caracteres)
         total_chars_ws = 0      # caracteres com espaços (curso)
         total_chars_ns = 0      # caracteres sem espaços (curso)
 
         for lesson in lessons:
+            if not isinstance(lesson, dict):
+                continue
             lesson_title = lesson.get("title", "Sem título")
-            blocks = lesson.get("items", [])
+            blocks = lesson.get("items", []) or lesson.get("blocks", []) or []
             lesson_words = 0
-
-            # --- NOVO: acumuladores de caracteres por módulo ---
             lesson_chars_ws = 0
             lesson_chars_ns = 0
-
             block_index = 0
 
             for block in blocks:
@@ -111,16 +218,14 @@ if uploaded_file:
                 if not texts:
                     continue
 
-                merged = re.sub(r"\\s+", " ", " ".join(texts)).strip()
+                merged = re.sub(r"\s+", " ", " ".join(texts)).strip()
                 if not merged:
                     continue
 
                 block_index += 1
                 word_count = len(merged.split())
-
-                # --- NOVO: contagem de caracteres ---
-                char_count_ws = len(merged)                    # com espaços
-                char_count_ns = len(re.sub(r"\\s+", "", merged))  # sem espaços
+                char_count_ws = len(merged)
+                char_count_ns = len(re.sub(r"\s+", "", merged))
 
                 lesson_words += word_count
                 lesson_chars_ws += char_count_ws
@@ -128,7 +233,6 @@ if uploaded_file:
 
                 preview = merged[:120] + ("..." if len(merged) > 120 else "")
 
-                # Mantém linha original (apenas palavras)
                 block_rows.append({
                     "Módulo": lesson_title,
                     "Bloco": f"Bloco {block_index}",
@@ -136,7 +240,6 @@ if uploaded_file:
                     "Prévia": preview
                 })
 
-                # --- NOVO: versão com caracteres ---
                 block_rows_chars.append({
                     "Módulo": lesson_title,
                     "Bloco": f"Bloco {block_index}",
@@ -146,14 +249,12 @@ if uploaded_file:
                     "Prévia": preview
                 })
 
-            # Guarda o total do módulo (original - só palavras)
             module_rows.append({
                 "Módulo": lesson_title,
                 "Palavras": lesson_words
             })
             total_words += lesson_words
 
-            # --- NOVO: guarda o total do módulo com caracteres ---
             module_rows_chars.append({
                 "Módulo": lesson_title,
                 "Palavras": lesson_words,
@@ -163,7 +264,7 @@ if uploaded_file:
             total_chars_ws += lesson_chars_ws
             total_chars_ns += lesson_chars_ns
 
-        # ----------------- RELATÓRIO HTML DETALHADO (ORIGINAL - mantém igual) -----------------
+        # ----------------- RELATÓRIO HTML DETALHADO (ORIGINAL) -----------------
         parts = []
         parts.append(f"""
         <!DOCTYPE html>
@@ -271,14 +372,13 @@ if uploaded_file:
         )
         html_out_chars = "".join(parts_chars)
 
-        # ----------------- CSV RESUMO POR MÓDULO (ORIGINAL - mantém igual) -----------------
+        # ----------------- CSV RESUMO POR MÓDULO (ORIGINAL) -----------------
         csv_lines = ["Modulo,Palavras"]
         for row in module_rows:
-            # Escapa vírgulas no título com aspas
             modulo = row["Módulo"].replace('"', '""')
             csv_lines.append(f"\"{modulo}\",{row['Palavras']}")
         csv_lines.append(f"\"Total do curso\",{total_words}")
-        csv_bytes = ("\\n".join(csv_lines)).encode("utf-8")
+        csv_bytes = ("\n".join(csv_lines)).encode("utf-8")
 
         # ----------------- NOVO: CSV RESUMO (PALAVRAS + CARACTERES) -----------------
         csv_lines_chars = ["Modulo,Palavras,CaracteresComEspacos,CaracteresSemEspacos"]
@@ -288,10 +388,9 @@ if uploaded_file:
                 f"\"{modulo}\",{row['Palavras']},{row['Caracteres (c/ espaços)']},{row['Caracteres (s/ espaços)']}"
             )
         csv_lines_chars.append(f"\"Total do curso\",{total_words},{total_chars_ws},{total_chars_ns}")
-        csv_bytes_chars = ("\\n".join(csv_lines_chars)).encode("utf-8")
+        csv_bytes_chars = ("\n".join(csv_lines_chars)).encode("utf-8")
 
         # ----------------- DOWNLOADS -----------------
-        # Mantém os dois botões originais
         st.download_button(
             label="⬇️ Baixar Relatório HTML (detalhado)",
             data=html_out,
@@ -305,7 +404,6 @@ if uploaded_file:
             mime="text/csv"
         )
 
-        # --- NOVO: adiciona dois botões extras sem alterar os existentes ---
         st.download_button(
             label="⬇️ Baixar Relatório HTML (palavras + caracteres)",
             data=html_out_chars,
@@ -320,13 +418,11 @@ if uploaded_file:
         )
 
         # ----------------- RESUMO NA TELA -----------------
-        # Mantém a exibição original
         st.markdown(f"<h2 style='color:#83c7e5;'>{course_title}</h2>", unsafe_allow_html=True)
         st.write(f"📅 **Gerado em:** {data_geracao}")
 
         st.markdown("<h3 style='color:#83c7e5;'>Totais por módulo</h3>", unsafe_allow_html=True)
         st.dataframe(module_rows, use_container_width=True)
-
         st.markdown(
             f"<p style='font-size:1.1rem;'><b>Total do curso:</b> {total_words} palavras</p>",
             unsafe_allow_html=True
@@ -343,11 +439,9 @@ if uploaded_file:
                 f"O relatório HTML baixado contém todos os {len(block_rows)} blocos."
             )
 
-        # --- NOVO: seções adicionais (sem remover as originais) ---
         st.markdown("<hr/>", unsafe_allow_html=True)
         st.markdown("<h3 style='color:#83c7e5;'>Totais por módulo (palavras + caracteres)</h3>", unsafe_allow_html=True)
         st.dataframe(module_rows_chars, use_container_width=True)
-
         st.markdown(
             f"<p style='font-size:1.1rem;'><b>Total do curso:</b> {total_words} palavras | "
             f"{total_chars_ws} caracteres (c/ espaços) | {total_chars_ns} caracteres (s/ espaços)</p>",
